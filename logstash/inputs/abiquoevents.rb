@@ -22,8 +22,13 @@ class LogStash::Inputs::Abiquoevents < LogStash::Inputs::Base
   # Interval between calls
   config :interval, :validate => :number, :required => true
 
+  # 
+  # Set true if you want to collect all available data
+  # 
+  config :historic, :validate => :boolean, :default => false
   # Set this to true to enable debugging on an input.
   config :debug, :validate => :boolean, :default => false
+  
   
   
 
@@ -39,8 +44,9 @@ class LogStash::Inputs::Abiquoevents < LogStash::Inputs::Base
       d = Nokogiri::XML.parse(xml)
       # Retrieves only one element to get latest timestamp
       @timestamp = d.at('//event/timestamp').to_str
-      p "timesamp set to #{@timestamp}"
     end # if
+    @timestamp="1900-01-01T00:00:00+02:00" if @historic
+    p "timesamp set to #{@timestamp}"
   end #def
 
   private 
@@ -95,30 +101,31 @@ class LogStash::Inputs::Abiquoevents < LogStash::Inputs::Base
         	
 	p "Event class #{event.class}"
 	p "Event Inspect #{event.inspect}"
-	p "Event to_srt #{event.to_str}"
+#	p "Event to_srt #{event.to_str}"
 	stacktrace = event.at('stacktrace').to_str
 	p "Event at #{stacktrace}"
 
-        e = to_event(stacktrace,"abiquoevent")
+        e = to_event(stacktrace,@server)
 
- 	p 'event generated'
         e.fields.merge!(
 	  "id" => event.at('id').to_str,
-# 	  'actionPerformed' => event.at('actionPerformed').to_str,
-#         'component' => event.at('component').to_str,
+ 	  'actionPerformed' => event.at('actionPerformed').to_str,
+          'component' => event.at('component').to_str,
 	  'enterprise' => event.at('enterprise').to_str,
-	  'idEnterprise' => event.at('idEnterprise').to_str,
-	  'idUser' => event.at('idUser').to_str,
+	  'idEnterprise' => event.at('idEnterprise').to_str.to_i,
+	  'idUser' => event.at('idUser').to_str.to_i,
 #	  'idVirtualApp' => event.at('idVirtualApp').to_str,
 #	  'idVirtaulDatacenter' => event.at('idVirtualDatacenter').to_str,
 	  'performedBy' => event.at('performedBy').to_str,
 	  'severity' => event.at('severity').to_str,
-	  'generatedTimesatmp' => event.at('timestamp').to_str,
+	  'timestamp' => event.at('timestamp').to_str,
 	  'user' => event.at('user').to_str,
 #	  'virtualApp' => event.at('virtualApp').to_str,
 #	  'virtualDatacenter' => event.at('virtualDatacenter').to_str
         )
-        queue << e
+	p e
+	p 'to_event generated'
+	queue << e
       } # get events
 
       duration = Time.now - start
